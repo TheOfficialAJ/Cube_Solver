@@ -11,7 +11,7 @@ COLOR_RANGES = {'YELLOW': [(20, 100, 175), (255, 135, 215)], 'ORANGE': [(100, 14
                 'RED': [(50, 150, 120), (120, 190, 170)], 'GREEN': [(40, 55, 140), (220, 110, 180)],
                 'BLUE': [(40, 145, 50), (220, 180, 110)]}
 
-cubeImg = cv.imread("cube5.jpg")
+cubeImg = cv.imread("Cube Images/cube5.jpg")
 cubeImg = resize(cubeImg, SCALE)
 contImg = cubeImg.copy()
 notModImg = cubeImg.copy()
