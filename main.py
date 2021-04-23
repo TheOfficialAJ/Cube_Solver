@@ -8,5 +8,6 @@ while True:
     cubeResolver.generateSquareContours()
     if cv.waitKey(100) & 0xFF == 27:
         break
+
 capture.release()
 cv.destroyAllWindows()

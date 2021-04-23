@@ -5,6 +5,7 @@ from resize import resize
 import imutils.contours
 import contoursorter
 
+
 class CubeResolver:
     def __init__(self, image, SCALE, mode):
         self.approx_contours = []
@@ -47,6 +48,7 @@ class CubeResolver:
         if len(self.final_contours) != 9:
             print("ERROR Sorting not possible")
             return
+        self.paused = True
         contours = contoursorter.sort_contours(conts, method="top-to-bottom")
         row = []
         cube_rows = []
@@ -58,10 +60,15 @@ class CubeResolver:
                 row = []
         del row
         num = 0
+        self.final_contours = []
+        for elem in cube_rows:
+            for cnt in cube_rows:
+                self.final_contours.append(cnt)
+        print(self.final_contours)
         for row in cube_rows:
             for cnt in row:
                 x, y, w, h = cv.boundingRect(cnt)
-                cv.putText(img, "#" + str(num), (x+5, y + 10), cv.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
+                cv.putText(img, "#" + str(num), (x + 5, y + 10), cv.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
                 num += 1
 
         # for i in range(len(self.final_contours)):
