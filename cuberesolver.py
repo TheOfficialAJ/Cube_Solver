@@ -2,10 +2,13 @@ import cv2 as cv
 import numpy as np
 import colour as clr
 from resize import resize
-
+import imutils.contours
+import contoursorter
 
 class CubeResolver:
     def __init__(self, image, SCALE, mode):
+        self.approx_contours = []
+        self.paused = False
         self.image = image
         if mode == 1:
             self.capture = image
@@ -13,20 +16,66 @@ class CubeResolver:
         else:
             self.capture = None
         self.mode = mode
-        self.square_centers = []
+        self.final_contour_centres = []
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
         self.SCALE = SCALE
         self.tempImg = self.image.copy()
+        cv.namedWindow("Final Contours", cv.WINDOW_NORMAL)
+        cv.setMouseCallback("Final Contours", self.onClick)
         self.image = resize(self.image, self.SCALE)
 
+    def onClick(self, event, x, y, flags, param):
+        if event == cv.EVENT_LBUTTONUP:
+            print("Click Registered")
+            if not self.paused:
+                self.paused = True
+            else:
+                self.paused = False
+
     def resetContours(self):
-        self.square_centers = []
+        self.approx_contours = []
+        self.final_contour_centres = []
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
         self.tempImg = self.image.copy()
+
+    def sort_contours(self, img):
+        conts = self.final_contours
+        if len(self.final_contours) != 9:
+            print("ERROR Sorting not possible")
+            return
+        contours = contoursorter.sort_contours(conts, method="top-to-bottom")
+        row = []
+        cube_rows = []
+        for (i, cnt) in enumerate(conts, 1):
+            row.append(cnt)
+            if i % 3 == 0:
+                contours = contoursorter.sort_contours(row, method="left-to-right")
+                cube_rows.append(row)
+                row = []
+        del row
+        num = 0
+        for row in cube_rows:
+            for cnt in row:
+                x, y, w, h = cv.boundingRect(cnt)
+                cv.putText(img, "#" + str(num), (x+5, y + 10), cv.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
+                num += 1
+
+        # for i in range(len(self.final_contours)):
+        #     cnt = self.final_contours[i]
+        #     cx = self.final_contour_centres[i][0]
+        #     cy = self.final_contour_centres[i][1]
+        #     text = '#' + str(i)
+        #     cv.putText(img, text, (cx - 2, cy - 2), cv.FONT_HERSHEY_DUPLEX, 0.3, (255, 0, 0), 1)
+
+    def distance(self, p1, p2):
+        x1, y1 = p1
+        x2, y2 = p2
+        dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        return dist
 
     def prepareImg(self):
         if self.capture is not None:
@@ -70,6 +119,9 @@ class CubeResolver:
         bot_right_x = max([x1, x2, x3, x4])
         bot_right_y = max([y1, y2, y3, y4])
         return (top_left_x, top_left_y), (bot_right_x, bot_right_y)
+
+    def isDetectionDone(self):
+        pass
 
     def getAverageColor(self, img_roi):  # Returns the average color of ROI in LAB color space
         l = []
@@ -156,11 +208,13 @@ class CubeResolver:
         return img_crop
 
     def generateSquareContours(self):
+        if self.paused:
+            return
+
         self.resetContours()
         dilated = self.prepareImg()
         contours, hierarchy = cv.findContours(dilated, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-        self.approx_contours = []
         allContImg = self.image.copy()
         cv.drawContours(allContImg, contours, -1, (0, 0, 255), 2)
         for i in range(len(contours)):
@@ -185,9 +239,10 @@ class CubeResolver:
 
             side = area ** (1 / 2)
             perimeter = cv.arcLength(cnt, True)
-            threshold = 375 * self.SCALE ** 2
+            # threshold = 375 * self.SCALE ** 2
+            threshold = 20 * (self.SCALE ** 2)
             print("AREA", area)
-            if (area > 800 * self.SCALE ** 2) and 4 * side - threshold < perimeter < 4 * side + threshold:
+            if (area > 600 * self.SCALE ** 2) and 4 * side - threshold < perimeter < 4 * side + threshold:
                 self.square_contours.append(cnt)
                 x, y, w, h = cv.boundingRect(cnt)
                 print(x, y, h, w)
@@ -202,7 +257,7 @@ class CubeResolver:
         print(areas)
         # To remove all contours which are outliers in area. Uses IQR
 
-        if areas:
+        if areas:  # Only do this if the areas list has some elements to avoid Exceptions
             Q1 = np.quantile(areas, 0.25)  # Some maths stuff named "Inter Quartile Range" to remove Outliers
             Q3 = np.quantile(areas, 0.75)
             IQR = Q3 - Q1
@@ -221,16 +276,16 @@ class CubeResolver:
             M = cv.moments(cnt)
             cx = int(M['m10'] / M['m00'])
             cy = int(M['m01'] / M['m00'])
-            print("Color is", self.image[cy][cx])
             # cv.circle(self.image, (cx, cy), 4, (0, 0, 255), -1)
-            self.square_centers.append((cx, cy))
+            self.final_contour_centres.append((cx, cy))
 
+        # Removes nested contours
         i = 0
         while i < len(self.final_contours):
-            resX = self.image.shape[1]
-            resY = self.image.shape[0]
             j = 0
             while j < len(self.final_contours):
+                if i >= len(self.final_contours):
+                    break
                 corners1 = self.getDiagonalCorners(self.final_contours_corners[i])
                 corners2 = self.getDiagonalCorners(self.final_contours_corners[j])
                 # side_len1 = cv.arcLength(final_contours[i], True) // 4
@@ -239,9 +294,9 @@ class CubeResolver:
                     if (corners1[0][0] < corners2[0][0] and corners1[0][1] < corners2[0][1]) and (
                             corners1[1][0] > corners2[1][0] and corners1[1][1] > corners2[1][1]):
                         print("CONTOUR REMOVED", j)
-                        del self.final_contours_corners[i]
-                        del self.final_contours[i]
-                        del self.square_centers[i]
+                        del self.final_contours_corners[j]
+                        del self.final_contours[j]
+                        del self.final_contour_centres[j]
                     # elif distance(square_centers[i], square_centers[j]) < (side_len1 / 2 + side_len2 / 2):
                     #     print("CENTER DISTANCE TOO LOW")
                     #     del final_contours_corners[j]
@@ -250,5 +305,7 @@ class CubeResolver:
                 j += 1
             i += 1
             finalContImg = self.image.copy()
+            self.sort_contours(finalContImg)
+
             cv.drawContours(finalContImg, self.final_contours, -1, (0, 255, 0), 2)
             cv.imshow("Final Contours", finalContImg)
