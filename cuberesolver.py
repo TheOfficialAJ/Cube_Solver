@@ -6,6 +6,21 @@ import imutils.contours
 import contoursorter
 
 
+def getAverageColor(img_ROI):  # Returns the average color of ROI in LAB color space
+    l = []
+    a = []
+    b = []
+    img_ROI = cv.cvtColor(img_ROI, cv.COLOR_BGR2Lab)
+    for x in range(img_ROI.shape[1]):
+        for y in range(img_ROI.shape[0]):
+            if l != 0:
+                l.append((img_ROI[y][x])[0])
+                a.append((img_ROI[y][x])[1])
+                b.append((img_ROI[y][x])[2])
+
+    return round(np.mean(l), 2), round(np.mean(a), 2), round(np.mean(b), 2)
+
+
 class CubeResolver:
     def __init__(self, image, SCALE, mode):
         self.approx_contours = []
@@ -17,7 +32,7 @@ class CubeResolver:
         else:
             self.capture = None
         self.mode = mode
-        self.final_contour_centres = []
+        # self.final_contour_centres = []
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
@@ -28,7 +43,11 @@ class CubeResolver:
         self.image = resize(self.image, self.SCALE)
 
     def onClick(self, event, x, y, flags, param):
-        if event == cv.EVENT_LBUTTONUP:
+        if self.isDetectionDone() and event == cv.EVENT_LBUTTONDBLCLK:
+            print("Detection Complete")
+            print("Detection Complete")
+
+        elif event == cv.EVENT_LBUTTONUP:
             print("Click Registered")
             if not self.paused:
                 self.paused = True
@@ -37,7 +56,7 @@ class CubeResolver:
 
     def resetContours(self):
         self.approx_contours = []
-        self.final_contour_centres = []
+        # self.final_contour_centres = []
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
@@ -46,43 +65,71 @@ class CubeResolver:
     def sort_contours(self, img):
         conts = self.final_contours
         if len(self.final_contours) != 9:
-            print("ERROR Sorting not possible")
+            print("ERROR Detection not proper")
             return
-        self.paused = True
+
         contours = contoursorter.sort_contours(conts, method="top-to-bottom")
+
         row = []
         cube_rows = []
-        for (i, cnt) in enumerate(conts, 1):
+        for (i, cnt) in enumerate(contours, 1):
             row.append(cnt)
             if i % 3 == 0:
                 contours = contoursorter.sort_contours(row, method="left-to-right")
-                cube_rows.append(row)
+                cube_rows.append(contours)
                 row = []
         del row
         num = 0
-        self.final_contours = []
-        for elem in cube_rows:
-            for cnt in cube_rows:
-                self.final_contours.append(cnt)
-        print(self.final_contours)
+
+        self.final_contours = []  # Sorts the final_contours
+
         for row in cube_rows:
             for cnt in row:
-                x, y, w, h = cv.boundingRect(cnt)
-                cv.putText(img, "#" + str(num), (x + 5, y + 10), cv.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
-                num += 1
+                self.final_contours.append(cnt)
 
-        # for i in range(len(self.final_contours)):
-        #     cnt = self.final_contours[i]
-        #     cx = self.final_contour_centres[i][0]
-        #     cy = self.final_contour_centres[i][1]
-        #     text = '#' + str(i)
-        #     cv.putText(img, text, (cx - 2, cy - 2), cv.FONT_HERSHEY_DUPLEX, 0.3, (255, 0, 0), 1)
+        # for row in cube_rows:
+        #     for cnt in row:
+        #         x, y, w, h = cv.boundingRect(cnt)
+        #         cv.putText(img, "#" + str(num), (x + 5, y + 10), cv.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
+        #         num += 1
+
+        for i in range(len(self.final_contours)):
+            cnt = self.final_contours[i]
+            cx, cy = self.getContourCentre(cnt)
+            text = '#' + str(i)
+            cv.putText(img, text, (cx - 3, cy + 2), cv.FONT_HERSHEY_DUPLEX, 0.3, (0, 0, 0), 1)
 
     def distance(self, p1, p2):
         x1, y1 = p1
         x2, y2 = p2
         dist = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         return dist
+
+    def getMinDistance(self, cnt, contour_list):
+        distance = []
+        x1, y1 = self.getContourCentre(cnt)
+        for c in contour_list:
+            x2, y2 = self.getContourCentre(c)
+            dist = self.distance((x1, y1), (x2, y2))
+            if dist != 0:
+                distance.append(dist)
+        return min(distance)
+
+    def isDetectionDone(self):
+        if len(self.final_contours) != 9:
+            return False
+
+        dist_thresh = 2
+        min_distances = []
+        for cnt in self.final_contours:
+            min_dist = round(self.getMinDistance(cnt, self.final_contours), 2)
+            min_distances.append(min_dist)
+        mean_dist = sum(min_distances) / len(min_distances)
+        for dist in min_distances:
+            if dist + dist_thresh > dist > mean_dist - dist_thresh:
+                return True
+            else:
+                return False
 
     def prepareImg(self):
         if self.capture is not None:
@@ -112,6 +159,12 @@ class CubeResolver:
         # cv.imshow("Dilated", dilated)
         return dilated
 
+    def getContourCentre(self, cnt):
+        M = cv.moments(cnt)
+        cx = int(M['m10'] / M['m00'])
+        cy = int(M['m01'] / M['m00'])
+        return cx, cy
+
     def getDiagonalCorners(self, contour_corners):
         x1 = int(contour_corners[0][0])
         x2 = int(contour_corners[1][0])
@@ -127,9 +180,6 @@ class CubeResolver:
         bot_right_y = max([y1, y2, y3, y4])
         return (top_left_x, top_left_y), (bot_right_x, bot_right_y)
 
-    def isDetectionDone(self):
-        pass
-
     def getAverageColor(self, img_roi):  # Returns the average color of ROI in LAB color space
         l = []
         a = []
@@ -142,29 +192,6 @@ class CubeResolver:
                 b.append((img_ROI[y][x])[2])
 
         return round(np.mean(l)), round(np.mean(a)), round(np.mean(b))
-
-    def predictColor(self, image, corners, color_ranges):
-        diagCorners = self.getDiagonalCorners(corners)
-        image_lab = cv.cvtColor(image, cv.COLOR_BGR2Lab)
-        roi = image_lab[diagCorners[0][1]:diagCorners[1][1], diagCorners[0][0]:diagCorners[1][0]]
-
-        color_masks = {}
-        for color_name, color_range in color_ranges.items():
-            color_masks[color_name] = cv.inRange(roi, color_range[0], color_range[1])
-
-        masked_images = {}
-        for color_name, mask in color_masks.items():
-            masked_images[color_name] = cv.threshold(cv.bitwise_and(roi, roi, mask=mask), 0, 255, cv.THRESH_BINARY)[1]
-
-        prediction = None
-        maxVal = 0
-        for color_name, roi_mask in masked_images.items():
-            average_col = self.getAverageColor(masked_images[color_name])[0]
-            if average_col > maxVal:  # If this mask is more whiter than any previous one, change prediction to this color
-                prediction = color_name
-                maxVal = average_col
-        # cv.imshow("RED MASK", masked_images["RED"])
-        return prediction
 
     def getROI(self, img, contour_corner):
         x1 = int(contour_corner[0][0])
@@ -196,23 +223,6 @@ class CubeResolver:
         cv.drawContours(img, [box], 0, (0, 255, 0), 2)
         print("BOX", box)
         return box
-
-    def cropMinAreaRect(self, img, rect):
-        # rotate img
-        angle = rect[2]
-        rows, cols = img.shape[0], img.shape[1]
-        M = cv.getRotationMatrix2D((cols / 2, rows / 2), angle, 1)
-        img_rot = cv.warpAffine(img, M, (cols, rows))
-
-        # rotate bounding box
-        rect0 = (rect[0], rect[1], 0.0)
-        box = cv.boxPoints(rect0)
-        pts = np.int0(cv.transform(np.array([box]), M))[0]
-        pts[pts < 0] = 0
-
-        # crop
-        img_crop = img_rot[pts[1][1]:pts[0][1], pts[1][0]:pts[2][0]]
-        return img_crop
 
     def generateSquareContours(self):
         if self.paused:
@@ -279,12 +289,9 @@ class CubeResolver:
                     self.final_contours_corners.append(self.drawApproxRect(cnt, contImg))
                     self.final_contours.append(cnt)
 
-        for cnt in self.final_contours:
-            M = cv.moments(cnt)
-            cx = int(M['m10'] / M['m00'])
-            cy = int(M['m01'] / M['m00'])
-            # cv.circle(self.image, (cx, cy), 4, (0, 0, 255), -1)
-            self.final_contour_centres.append((cx, cy))
+        # for cnt in self.final_contours:
+        #     self.final_contour_centres.append(self.getContourCentre(cnt))
+        #     # cv.circle(self.image, (cx, cy), 4, (0, 0, 255), -1)
 
         # Removes nested contours
         i = 0
@@ -303,7 +310,7 @@ class CubeResolver:
                         print("CONTOUR REMOVED", j)
                         del self.final_contours_corners[j]
                         del self.final_contours[j]
-                        del self.final_contour_centres[j]
+                        # del self.final_contour_centres[j]
                     # elif distance(square_centers[i], square_centers[j]) < (side_len1 / 2 + side_len2 / 2):
                     #     print("CENTER DISTANCE TOO LOW")
                     #     del final_contours_corners[j]
@@ -311,8 +318,20 @@ class CubeResolver:
                     #     del square_centers[j]
                 j += 1
             i += 1
-            finalContImg = self.image.copy()
-            self.sort_contours(finalContImg)
+        finalContImg = self.image.copy()
 
-            cv.drawContours(finalContImg, self.final_contours, -1, (0, 255, 0), 2)
-            cv.imshow("Final Contours", finalContImg)
+        self.sort_contours(finalContImg)
+        if self.isDetectionDone():
+            self.paused = True
+
+        cv.drawContours(finalContImg, self.final_contours, -1, (0, 255, 0), 2)
+        cv.imshow("Final Contours", finalContImg)
+
+        # mask = np.zeros(self.image.shape[:2], dtype='uint8')  # Note: Don't use mask = np.zeros_like(self.image) here as it gives error
+        # cv.drawContours(mask, self.final_contours, -1, (255,255,255), -1)
+        # cv.imshow("MASK", mask)
+        # print(mask.shape)
+        # print(self.image.shape)
+        # masked = cv.bitwise_and(self.image, self.image, mask=mask)
+        # print("Color is", getAverageColor(masked))
+        # cv.imshow("CONTOUR AS MASk", masked)
