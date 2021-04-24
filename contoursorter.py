@@ -1,6 +1,6 @@
 import cv2 as cv
-import numpy as np
 import functools
+
 
 # def sort_contours(cnts, method="left-to-right"):
 #     # initialize the reverse flag and sort index
@@ -23,10 +23,10 @@ import functools
 
 def greaterX(a, b):
     momA = cv.moments(a)
-    (xa,ya) = int(momA['m10']/momA['m00']), int(momA['m01']/momA['m00'])
+    (xa, ya) = int(momA['m10'] / momA['m00']), int(momA['m01'] / momA['m00'])
 
     momB = cv.moments(b)
-    (xb,yb) = int(momB['m10']/momB['m00']), int(momB['m01']/momB['m00'])
+    (xb, yb) = int(momB['m10'] / momB['m00']), int(momB['m01'] / momB['m00'])
     if xa > xb:
         return 1
 
@@ -35,12 +35,13 @@ def greaterX(a, b):
     else:
         return -1
 
+
 def greaterY(a, b):
     momA = cv.moments(a)
-    (xa,ya) = int(momA['m10']/momA['m00']), int(momA['m01']/momA['m00'])
+    (xa, ya) = int(momA['m10'] / momA['m00']), int(momA['m01'] / momA['m00'])
 
     momB = cv.moments(b)
-    (xb,yb) = int(momB['m10']/momB['m00']), int(momB['m01']/momB['m00'])
+    (xb, yb) = int(momB['m10'] / momB['m00']), int(momB['m01'] / momB['m00'])
     if ya > yb:
         return 1
 
