@@ -10,7 +10,7 @@ class ColorDetector:
                        'ORANGE': (0, 128, 255), 'WHITE': (255, 255,
                                                           255)}
 
-        self.COLOR_RANGES = {'YELLOW': [(20, 130, 160), (255, 155, 190)], 'ORANGE': [(50, 150, 140), (230, 185, 185)],
+        self.COLOR_RANGES = {'YELLOW': [(20, 130, 160), (255, 155, 190)], 'ORANGE': [(100, 150, 160), (230, 185, 200)],
                              'RED': [(30, 150, 120), (120, 190, 170)], 'GREEN': [(40, 55, 140), (220, 110, 180)],
                              'BLUE': [(20, 130, 50), (220, 170, 110)]}
         cv.namedWindow("Color Detector", cv.WINDOW_NORMAL)
@@ -50,12 +50,13 @@ class ColorDetector:
             img_lab = cv.cvtColor(self.image, cv.COLOR_BGR2Lab)
             print(img_lab[y][x])
 
-    def showSquareColors(self, image, contour):
+    def getSquareColor(self, image, contour):
+        sorted_colors = []
         color = self.predictColor(image, contour)
         cv.drawContours(image, [contour], 0, self.COLORS[color], 2)
         img_with_legend = image.copy()
         cv.imshow("Color Detector", image)
-        return image
+        return image, color
 
     def cropMinAreaRect(self, img, cnt):
 
