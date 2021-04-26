@@ -146,7 +146,6 @@ class CubeResolver:
         # cv.imshow("Blurred", blur)
 
         # Canny
-        sigma = 0.33
         high_thresh, thresh_im = cv.threshold(blur_gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         print("Thresholds", high_thresh)
         low_thresh = high_thresh // 2
@@ -224,6 +223,11 @@ class CubeResolver:
         print("BOX", box)
         return box
 
+    def getContourImage(self):
+        img = self.image.copy()
+        cv.drawContours(img, self.final_contours, -1, (0,255,0), 2)
+        return img
+
     def generateSquareContours(self):
         if self.paused:
             return
@@ -247,8 +251,8 @@ class CubeResolver:
 
             # cv.rectangle(self.image, (x, y), (x + w, y + h), (255, 0, 0), 1)
 
-        cv.drawContours(self.tempImg, self.approx_contours, -1, (0, 0, 255), 2)  # Draws the contours
-        cv.imshow("Approx Contours", self.tempImg)
+        # cv.drawContours(self.tempImg, self.approx_contours, -1, (0, 0, 255), 2)  # Draws the contours
+        # cv.imshow("Approx Contours", self.tempImg)
         contImg = self.image.copy()
         for i in range(len(self.approx_contours)):
             cnt = self.approx_contours[i]
@@ -268,7 +272,7 @@ class CubeResolver:
                 box = cv.boxPoints(rect)
                 box = np.int0(box)
                 cv.drawContours(contImg, [box], 0, (0, 255, 0), 2)
-                cv.imshow("Contours Square", contImg)
+                # cv.imshow("Contours Square", contImg)
 
         areas = [cv.contourArea(cnt) for cnt in self.square_contours]
         print(areas)

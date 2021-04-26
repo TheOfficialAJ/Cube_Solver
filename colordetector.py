@@ -22,8 +22,8 @@ class ColorDetector:
         cv.imshow("Color Detector", self.image)
         roi = self.cropMinAreaRect(image, contour)
         roi = cv.cvtColor(roi, cv.COLOR_BGR2Lab)
-        cv.imshow("ROI", roi)
-        print(roi.shape)
+        # cv.imshow("ROI", roi)
+        # print(roi.shape)
         color_masks = {}
         for color_name, color_range in self.COLOR_RANGES.items():
             color_masks[color_name] = cv.inRange(roi, color_range[0], color_range[1])
@@ -41,8 +41,9 @@ class ColorDetector:
                 prediction = color_name
                 maxVal = average_col
 
-        for col_name, img in masked_images.items():
-            cv.imshow(col_name + " MASK", img)
+        # for col_name, img in masked_images.items():
+        #     cv.imshow(col_name + " MASK", img)
+
         return prediction
 
     def onClick(self, event, x, y, flags, param):
