@@ -1,5 +1,8 @@
+import time
+
 import cv2 as cv
 import numpy as np
+import rubik_solver.utils
 
 '''              3
 *            =========
@@ -25,9 +28,10 @@ class Cube:
 
         self.cube_faces = {}
         for color in self.COLORS.keys():  # Initializes all faces to have just the center square colored
-            self.cube_faces[color] = [['GRAY', 'GRAY', 'GRAY'] for i in range(3)]
-            self.cube_faces[color][1][1] = color
-        print("CUBE FACES", self.cube_faces)
+            if color != 'GRAY':
+                self.cube_faces[color] = [['GRAY', 'GRAY', 'GRAY'] for i in range(3)]
+                self.cube_faces[color][1][1] = color
+            print("CUBE FACES", self.cube_faces)
 
     def addFace(self, sorted_colors):
         mid_piece = sorted_colors[4]
@@ -40,6 +44,12 @@ class Cube:
                 row = []
         self.cube_faces[mid_piece] = face
         return mid_piece
+
+    # TODO Add the rotation functionality
+    def rotateFace(self, face_name):
+        face_arr = self.cube_faces[face_name]
+        self.cube_faces[face_name] = list(zip(*face_arr[::-1]))
+        print("Face Rotated")
 
     def displayFace(self, face_color=None):
         if face_color is None:  # If no face name is supplied display any random face
@@ -80,22 +90,71 @@ class Cube:
             self.displayFace(face_name)
             print("===================================================")
 
-    def drawAllFaces(self):
-        blank = np.zeros((1000, 1000, 3), dtype='uint8')
-        offset = 180
-        for color in self.COLORS:
-            if color != 'GRAY':
-                offsetX = int(self.color_pos[color][0] * offset)
-                offsetY = int(self.color_pos[color][1] * offset)
-                blank = self.drawFace(color, offsetX=offsetX, offsetY=offsetY, canvas_img=blank)
-        return blank
+    # def drawAllFaces(self):
+    #     blank = np.zeros((1000, 1000, 3), dtype='uint8')
+    #     offset = 180
+    #     for color in self.COLORS:
+    #         if color != 'GRAY':
+    #             offsetX = int(self.color_pos[color][0] * offset)
+    #             offsetY = int(self.color_pos[color][1] * offset)
+    #             blank = self.drawFace(color, offsetX=offsetX, offsetY=offsetY, canvas_img=blank)
+    #     return blank
 
-    def getAllFaces(self):
+    def getAllFaces(self, sideLen=45):
         face_img_dict = {}
         for color in self.COLORS:
             if color != 'GRAY':
                 face = self.cube_faces[color]
-                img = self.drawFace(color, square_len=45, offsetX=5, offsetY=5)
+                img = self.drawFace(color, square_len=sideLen, offsetX=5, offsetY=5)
                 face_img_dict[color] = img
 
         return face_img_dict
+
+    def getSolution(self):
+        return self._getCubeSolution()
+
+    def isSolveable(self):
+        color_nums = {col: 0 for col in self.COLORS.keys()}
+        del color_nums['GRAY']
+        for face in self.cube_faces.values():
+            print("face:", face)
+            for row in face:
+                for col in row:
+                    print("row", row)
+                    if col == 'GRAY':
+                        return False
+                    else:
+                        color_nums[col] += 1
+        print("Color_nums:", color_nums)
+        print("color_cums values:", color_nums.values())
+        if len(set(color_nums.values())) == 1:
+            return True
+        else:
+            return False
+
+    def _getCubeSolution(self):
+        cubeStr = ""
+        print("gray in cube", 'GRAY' in self.cube_faces)
+        for i in range(3):
+            for j in range(3):
+                cubeStr += self.cube_faces['YELLOW'][i][j][0]
+
+        # for i in range(3):
+        #     for face in ['BLUE', 'RED', "GREEN", 'ORANGE']:
+        #         cubeStr += "".join([col[0] for col in self.cube_faces[face][i]])
+
+        for face in ['BLUE', 'RED', "GREEN", 'ORANGE']:
+            for i in range(3):
+                cubeStr += "".join([col[0] for col in self.cube_faces[face][i]])
+
+        for i in range(3):
+            for j in range(3):
+                cubeStr += self.cube_faces['WHITE'][i][j][0]
+        cubeStr = cubeStr.lower()
+
+        try:
+            solution = rubik_solver.utils.solve(cubeStr, method='Kociemba')
+            print(solution)
+            return solution
+        except:
+            print("Error Invalid Cube")

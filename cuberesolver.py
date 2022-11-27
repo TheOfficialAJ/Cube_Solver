@@ -1,28 +1,14 @@
+import time
+
 import cv2 as cv
 import numpy as np
-import colour as clr
-from resize import resize
-import imutils.contours
+
 import contoursorter
-
-
-def getAverageColor(img_ROI):  # Returns the average color of ROI in LAB color space
-    l = []
-    a = []
-    b = []
-    img_ROI = cv.cvtColor(img_ROI, cv.COLOR_BGR2Lab)
-    for x in range(img_ROI.shape[1]):
-        for y in range(img_ROI.shape[0]):
-            if l != 0:
-                l.append((img_ROI[y][x])[0])
-                a.append((img_ROI[y][x])[1])
-                b.append((img_ROI[y][x])[2])
-
-    return round(np.mean(l), 2), round(np.mean(a), 2), round(np.mean(b), 2)
+from resize import rescale
 
 
 class CubeResolver:
-    def __init__(self, image, SCALE, mode):
+    def __init__(self, image, SCALE, mode): # Enter mode = 1 for video capture, put VideoStream in image
         self.approx_contours = []
         self.paused = False
         self.image = image
@@ -31,16 +17,18 @@ class CubeResolver:
             _, self.image = self.image.read()
         else:
             self.capture = None
+
+        # self.finalContImg = self.image.copy()
         self.mode = mode
         # self.final_contour_centres = []
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
         self.SCALE = SCALE
-        self.tempImg = self.image.copy()
+        # self.tempImg = self.image.copy()
         cv.namedWindow("Final Contours", cv.WINDOW_NORMAL)
         cv.setMouseCallback("Final Contours", self.onClick)
-        self.image = resize(self.image, self.SCALE)
+        self.image = rescale(self.image, self.SCALE)
 
     def onClick(self, event, x, y, flags, param):
         if self.isDetectionDone() and event == cv.EVENT_LBUTTONDBLCLK:
@@ -49,10 +37,13 @@ class CubeResolver:
 
         elif event == cv.EVENT_LBUTTONUP:
             print("Click Registered")
-            if not self.paused:
-                self.paused = True
-            else:
-                self.paused = False
+            self.togglePause()
+
+    def togglePause(self):
+        if not self.paused:
+            self.paused = True
+        else:
+            self.paused = False
 
     def resetContours(self):
         self.approx_contours = []
@@ -60,7 +51,7 @@ class CubeResolver:
         self.final_contours_corners = []
         self.final_contours = []
         self.square_contours = []
-        self.tempImg = self.image.copy()
+        # self.tempImg = self.image.copy()
 
     def sort_contours(self, img):
         conts = self.final_contours
@@ -179,19 +170,6 @@ class CubeResolver:
         bot_right_y = max([y1, y2, y3, y4])
         return (top_left_x, top_left_y), (bot_right_x, bot_right_y)
 
-    def getAverageColor(self, img_roi):  # Returns the average color of ROI in LAB color space
-        l = []
-        a = []
-        b = []
-        img_ROI = cv.cvtColor(img_roi, cv.COLOR_BGR2Lab)
-        for x in range(img_ROI.shape[1]):
-            for y in range(img_ROI.shape[0]):
-                l.append((img_ROI[y][x])[0])
-                a.append((img_ROI[y][x])[1])
-                b.append((img_ROI[y][x])[2])
-
-        return round(np.mean(l)), round(np.mean(a)), round(np.mean(b))
-
     def getROI(self, img, contour_corner):
         x1 = int(contour_corner[0][0])
         x2 = int(contour_corner[1][0])
@@ -215,7 +193,7 @@ class CubeResolver:
             cube_ROIs.append(roi)
         return cube_ROIs
 
-    def drawApproxRect(self, contour, img):  # Draws the approx Rect on given image and returns its corners
+    def _drawApproxRect(self, contour, img):  # Draws the approx Rect on given image and returns its corners
         rect = cv.minAreaRect(contour)  # Returns the origin, (width, height), angle of rotation of the minArea Rect
         box = cv.boxPoints(rect)  # Processes the rect information to get corners of the rectangle
         box = np.int0(box)
@@ -225,7 +203,7 @@ class CubeResolver:
 
     def getContourImage(self):
         img = self.image.copy()
-        cv.drawContours(img, self.final_contours, -1, (0,255,0), 2)
+        cv.drawContours(img, self.final_contours, -1, (0, 255, 0), 2)
         return img
 
     def generateSquareContours(self):
@@ -236,8 +214,8 @@ class CubeResolver:
         dilated = self.prepareImg()
         contours, hierarchy = cv.findContours(dilated, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
-        allContImg = self.image.copy()
-        cv.drawContours(allContImg, contours, -1, (0, 0, 255), 2)
+        # allContImg = self.image.copy()
+        # cv.drawContours(allContImg, contours, -1, (0, 0, 255), 2)
         for i in range(len(contours)):
             cnt = contours[i]
             epsilon = 0.1 * cv.arcLength(cnt, True)
@@ -254,6 +232,8 @@ class CubeResolver:
         # cv.drawContours(self.tempImg, self.approx_contours, -1, (0, 0, 255), 2)  # Draws the contours
         # cv.imshow("Approx Contours", self.tempImg)
         contImg = self.image.copy()
+
+        start = time.process_time()
         for i in range(len(self.approx_contours)):
             cnt = self.approx_contours[i]
             area = cv.contourArea(cnt)
@@ -276,8 +256,10 @@ class CubeResolver:
 
         areas = [cv.contourArea(cnt) for cnt in self.square_contours]
         print(areas)
-        # To remove all contours which are outliers in area. Uses IQR
+        print("Time 1:",time.process_time()-start)
 
+        # To remove all contours which are outliers in area. Uses IQR
+        start = time.process_time()
         if areas:  # Only do this if the areas list has some elements to avoid Exceptions
             Q1 = np.quantile(areas, 0.25)  # Some maths stuff named "Inter Quartile Range" to remove Outliers
             Q3 = np.quantile(areas, 0.75)
@@ -290,14 +272,16 @@ class CubeResolver:
                     print("WORNG CONTOUR")
                     continue
                 else:
-                    self.final_contours_corners.append(self.drawApproxRect(cnt, contImg))
+                    self.final_contours_corners.append(self._drawApproxRect(cnt, contImg))
                     self.final_contours.append(cnt)
-
+        print("Time 2:", time.process_time()-start)
         # for cnt in self.final_contours:
         #     self.final_contour_centres.append(self.getContourCentre(cnt))
         #     # cv.circle(self.image, (cx, cy), 4, (0, 0, 255), -1)
 
         # Removes nested contours
+        start = time.process_time()
+
         i = 0
         while i < len(self.final_contours):
             j = 0
@@ -322,14 +306,17 @@ class CubeResolver:
                     #     del square_centers[j]
                 j += 1
             i += 1
-        finalContImg = self.image.copy()
+        # self.finalContImg = self.image.copy()
+        print("Time 3:", time.process_time()-start)
 
-        self.sort_contours(finalContImg)
+        # self.sort_contours(self.finalContImg)
+        # cv.drawContours(self.finalContImg, self.final_contours, -1, (0, 255, 0), 2)
+        # cv.imshow("Final Contours", self.finalContImg)
+
+        start = time.process_time()
         if self.isDetectionDone():
             self.paused = True
-
-        cv.drawContours(finalContImg, self.final_contours, -1, (0, 255, 0), 2)
-        cv.imshow("Final Contours", finalContImg)
+        print("time 4:", time.process_time()-start)
 
         # mask = np.zeros(self.image.shape[:2], dtype='uint8')  # Note: Don't use mask = np.zeros_like(self.image) here as it gives error
         # cv.drawContours(mask, self.final_contours, -1, (255,255,255), -1)

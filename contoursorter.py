@@ -1,5 +1,6 @@
-import cv2 as cv
 import functools
+
+import cv2 as cv
 
 
 # def sort_contours(cnts, method="left-to-right"):

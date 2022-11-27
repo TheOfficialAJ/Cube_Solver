@@ -1,22 +1,10 @@
 import cv2 as cv
 import numpy as np
+
 import resize
 
 xi = yi = xf = yf = 0
 img_roi = None
-
-img = cv.imread("../OpenCV Image Processing/cube1.jpg")
-img = resize.resize(img, 0.2)
-cv.imshow("RGB IMAGE", img)
-img = cv.cvtColor(img, cv.COLOR_BGR2Lab)
-l, a, b = cv.split(img)
-# cv.imshow("L", l)
-# cv.imshow("A", a)
-# cv.imshow("B", b)
-print(f"New size {img.shape[1]}x{img.shape[0]}")
-
-mod_img = img.copy()  # This is the image that will be displayed wih the rectangles to protect the original one
-# cv.imshow("Image", mod_img)
 
 
 def meanColor(image):
@@ -39,7 +27,7 @@ def displayPixelVal(event, x, y, flags, param):
         print("displayPixelVal called")
         print(mod_img[y, x])
         img_lab = cv.cvtColor(img, cv.COLOR_BGR2Lab)
-        print("COLOR:",img_lab[y][x])
+        print("COLOR:", img_lab[y][x])
         xi = x
         yi = y
         cv.putText(mod_img, str(mod_img[y][x]), (x, y), cv.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 255), 2)
@@ -56,23 +44,41 @@ def displayPixelVal(event, x, y, flags, param):
             cv.rectangle(mod_img, (xi, yi), (xf, yf), (0, 255, 0), 1)
             color_avg = meanColor(img_roi)
             color_avg_str = f"({round(color_avg[0], 2)}, {round(color_avg[1], 2)}, {round(color_avg[2], 2)})"
-            print(meanColor(img_roi))
+            print("Mean Color:", meanColor(img_roi))
             cv.putText(mod_img, color_avg_str, ((xi + xf) // 2, (yi + yf) // 2), cv.FONT_HERSHEY_TRIPLEX, 0.5,
                        (0, 255, 0), 1)
         # cv.imshow("image", img)
 
 
-cv.setMouseCallback('Image', displayPixelVal)
-cv.setMouseCallback('RGB IMAGE', displayPixelVal)
-
+vid = cv.VideoCapture(0)
 while True:
-    if img_roi is not None:
-        cv.imshow("ROI", img_roi)
-    cv.imshow("Image", mod_img)
-    k = cv.waitKey(20) & 0xFF
-    if k == 27:
+    ret, img = vid.read()
+    if cv.waitKey(1) == ord('q'):
         break
-    elif k == 114:
-        mod_img = img.copy()
+    cv.imshow("RGB IMAGE", img)
+    img = cv.cvtColor(img, cv.COLOR_BGR2Lab)
+    l, a, b = cv.split(img)
+    cv.setMouseCallback('Image', displayPixelVal)
+    cv.setMouseCallback('RGB IMAGE', displayPixelVal)
+    mod_img = img.copy()  # This is the image that will be displayed wih the rectangles to protect the original one
+    while True:
+        if img_roi is not None:
+            cv.imshow("ROI", img_roi)
+        cv.imshow("Image", mod_img)
+        k = cv.waitKey(20) & 0xFF
+        if k == 27:
+            break
+        elif k == 114:
+            mod_img = img.copy()
+
+    # cv.imshow("L", l)
+    # cv.imshow("A", a)
+    # cv.imshow("B", b)
+    # print(f"New size {img.shape[1]}x{img.shape[0]}")
+
+    # cv.imshow("Image", mod_img)
+
+# img = cv.imread("../OpenCV Image Processing/cube1.jpg")
+
 
 cv.destroyAllWindows()

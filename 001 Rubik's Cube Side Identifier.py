@@ -1,7 +1,7 @@
 import cv2 as cv
 import numpy as np
-import colour as clr
-from resize import resize
+
+from resize import rescale
 
 SCALE = 0.15
 COLORS = {'BLUE': (240, 250, 3), 'RED': (0, 0, 255), 'GREEN': (0, 255, 0), 'YELLOW': (0, 255, 255),
@@ -12,7 +12,7 @@ COLOR_RANGES = {'YELLOW': [(20, 100, 175), (255, 135, 215)], 'ORANGE': [(100, 14
                 'BLUE': [(40, 145, 50), (220, 180, 110)]}
 
 cubeImg = cv.imread("Cube Images/cube5.jpg")
-cubeImg = resize(cubeImg, SCALE)
+cubeImg = rescale(cubeImg, SCALE)
 contImg = cubeImg.copy()
 notModImg = cubeImg.copy()
 # cubeImg = cv.cvtColor(cubeImg, cv.COLOR_BGR2HLS)

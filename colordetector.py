@@ -1,7 +1,8 @@
 import cv2 as cv
 import numpy as np
 
-
+# Uses LAB colorspace to reduce the effect of lighting conditions on color detection
+# It makes masks for all colors and then choose the color for which the mask gives the brightest values
 class ColorDetector:
     def __init__(self):
         """ NOTE: White color is the default color so any square whose color is not one of the other 5 is assigned white color """
@@ -10,9 +11,9 @@ class ColorDetector:
                        'ORANGE': (0, 128, 255), 'WHITE': (255, 255,
                                                           255)}
 
-        self.COLOR_RANGES = {'YELLOW': [(20, 130, 160), (255, 155, 190)], 'ORANGE': [(100, 150, 160), (230, 185, 200)],
-                             'RED': [(30, 150, 120), (120, 190, 170)], 'GREEN': [(40, 55, 140), (220, 110, 180)],
-                             'BLUE': [(20, 130, 50), (220, 170, 110)]}
+        self.COLOR_RANGES = {'YELLOW': [(20, 110, 140), (255, 130, 180)], 'ORANGE': [(100, 155, 150), (230, 180, 175)],
+                             'RED': [(30, 140, 120), (140, 160, 155)], 'GREEN': [(40, 80, 120), (220, 110, 150)],
+                             'BLUE': [(20, 95, 75), (220, 125, 115)]}
         cv.namedWindow("Color Detector", cv.WINDOW_NORMAL)
         cv.setMouseCallback("Color Detector", self.onClick)
         self.squares = []
@@ -43,7 +44,6 @@ class ColorDetector:
 
         # for col_name, img in masked_images.items():
         #     cv.imshow(col_name + " MASK", img)
-
         return prediction
 
     def onClick(self, event, x, y, flags, param):
@@ -51,16 +51,14 @@ class ColorDetector:
             img_lab = cv.cvtColor(self.image, cv.COLOR_BGR2Lab)
             print(img_lab[y][x])
 
-    def getSquareColor(self, image, contour):
-        sorted_colors = []
+    def getSquareColor(self, image,
+                       contour):  # Returns the contour image drawn with the color of the contour and the color name
         color = self.predictColor(image, contour)
         cv.drawContours(image, [contour], 0, self.COLORS[color], 2)
-        img_with_legend = image.copy()
         cv.imshow("Color Detector", image)
         return image, color
 
     def cropMinAreaRect(self, img, cnt):
-
         rect = cv.minAreaRect(cnt)
         box = cv.boxPoints(rect)
         box = np.int0(box)
@@ -98,10 +96,18 @@ class ColorDetector:
         a = []
         b = []
         img_ROI = cv.cvtColor(img_ROI, cv.COLOR_BGR2Lab)
-        for x in range(img_ROI.shape[1]):
-            for y in range(img_ROI.shape[0]):
-                l.append((img_ROI[y][x])[0])
-                a.append((img_ROI[y][x])[1])
-                b.append((img_ROI[y][x])[2])
-        averageCol = round(np.mean(l)), round(np.mean(a)), round(np.mean(b))
+        # for x in range(img_ROI.shape[1]):
+        #     for y in range(img_ROI.shape[0]):
+        #         l.append((img_ROI[y][x])[0])
+        #         a.append((img_ROI[y][x])[1])
+        #         b.append((img_ROI[y][x])[2])
+        avg_color_per_row = np.average(img_ROI, axis=0)
+        averageCol = np.average(avg_color_per_row, axis=0)
+
+        # averageCol = round(np.mean(l)), round(np.mean(a)), round(np.mean(b))
         return averageCol
+
+
+if __name__ == '__main__':
+    while True:
+        colorDetector = ColorDetector()
